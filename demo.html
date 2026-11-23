@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f7f0">
+  <meta name="description" content="Watch Airshed turn a winter smog forecast into household decisions and a shareable neighbourhood briefing.">
+  <title>Watch the walkthrough | Airshed</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <style>
+    @font-face{font-family:DM Sans;src:url(assets/dm-sans.woff2) format("woff2");font-weight:100 900;font-display:swap}
+    @font-face{font-family:Instrument Serif;src:url(assets/instrument-serif.woff2) format("woff2");font-display:swap}
+    *{box-sizing:border-box}
+    body{margin:0;background:#f7f7f0;color:#182d24;font:1.05rem/1.5 'DM Sans',Arial,sans-serif}
+    .wrap{width:min(1100px,calc(100% - 3rem));margin-inline:auto}
+    header{border-bottom:1px solid #d8dbcc}
+    header .wrap{display:flex;align-items:center;justify-content:space-between;min-height:76px}
+    a{color:inherit;text-underline-offset:.2em;text-decoration-thickness:1px}
+    .brand{display:inline-flex;align-items:center;gap:.55rem;font:2rem/1 'Instrument Serif',Georgia,serif;text-decoration:none}
+    .brand img{width:34px;height:34px}
+    .back{font-weight:640;font-size:.95rem}
+    main{padding:clamp(1.8rem,5vw,4rem) 0 3rem}
+    .kicker{display:flex;align-items:center;gap:.65rem;font-weight:735;font-size:.78rem;text-transform:uppercase;letter-spacing:.11em;color:#526c4d;margin:0}
+    .kicker:before{content:"";width:2rem;height:2px;background:#72965a}
+    h1{font:clamp(3.15rem,8vw,6rem)/.98 'Instrument Serif',Georgia,serif;letter-spacing:-.025em;margin:.7rem 0}
+    .dek{color:#485c4f;max-width:55ch;margin:.75rem 0 1.65rem}
+    .screen{position:relative;display:flex;align-items:center;justify-content:center;aspect-ratio:16/9;background:#182f25 url(assets/launch-cover.jpg) center 58%/cover no-repeat;border:1px solid #c5cebc;border-radius:18px;overflow:hidden}
+    iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#132219}
+    .play{position:relative;border:0;border-radius:100px;background:#fbfcf4;color:#1f402e;font:700 1rem/1.2 'DM Sans',sans-serif;padding:.95rem 1.3rem;align-items:center;gap:.6rem;display:inline-flex;cursor:pointer;box-shadow:0 4px 20px #101e1a2a}
+    .play:focus-visible,a:focus-visible{outline:3px solid #739b43;outline-offset:5px}
+    .play svg{width:1.2rem;height:1.2rem;fill:currentColor}
+    [hidden]{display:none!important}
+    .secondary{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.5rem 1.5rem;color:#526454;font-size:.93rem;margin:.8rem .1rem 0}
+    .details{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);margin-top:2rem;gap:1.5rem 2.5rem;border-top:1px solid #d2d7c7;padding-top:1.2rem}
+    h2{font:2rem/1.1 'Instrument Serif',Georgia,serif;margin:0 0 .45rem}
+    .details p{margin:0;color:#485c4f}
+    @media(max-width:620px){.wrap{width:calc(100% - 2rem)}header .wrap{min-height:64px}.details{grid-template-columns:1fr}.screen{border-radius:10px}}
+  </style>
+</head>
+<body>
+  <header><div class="wrap"><a class="brand" href="./"><img src="favicon.svg" alt="">Airshed</a><a class="back" href="./">Open the assistant</a></div></header>
+  <main class="wrap">
+    <p class="kicker">Product walkthrough</p>
+    <h1>A winter morning in Delhi.</h1>
+    <p class="dek">Follow one family from the hourly air forecast to a cleaner school run and a bulletin they can share with neighbours.</p>
+    <div class="screen" id="screen">
+      <button class="play" id="play" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3.8c0-.8.8-1.3 1.5-.9l14 8.1c.7.4.7 1.4 0 1.8l-14 8.1c-.7.4-1.5-.1-1.5-.9z"/></svg>Play walkthrough</button>
+    </div>
+    <div class="secondary"><span>English narration · On-screen captions</span><a id="drive" hidden>Watch on Google Drive</a></div>
+    <div class="details">
+      <section><h2>The household decision</h2><p>Use a labelled winter smog scenario to explore how the hourly forecast, household and commute change the advice.</p></section>
+      <section><h2>The community decision</h2><p>Compare transport choices, inspect the emissions assumptions and take a short air-quality bulletin to your neighbourhood.</p></section>
+    </div>
+  </main>
+  <script src="demo-player.js"></script>
+</body>
+</html>
+
