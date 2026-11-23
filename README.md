@@ -12,7 +12,7 @@ A city forecast tells you the air could be unhealthy. Airshed helps a household 
 2. Choose **Try winter scenario** for a repeatable, clearly labeled smog episode.
 3. Select a household and usual commute. Filter the actions to indoor air and expand **Why this helps**.
 4. Ask “How can we plan a cleaner school run?” or “When should we open the windows?” Try a different question to compare generated actions.
-5. In **Impact lab**, set 12 km, public transit and 10 households to reproduce the illustrative 22.73 kg tailpipe CO₂ savings in the demo.
+5. In **Impact lab**, set 12 km, public transit and one household to reproduce the illustrative 2.27 kg tailpipe CO₂ savings in the demo.
 6. Copy the bulletin for a school or neighbourhood group. The bulletin carries its data source, local time, AQI and actions.
 
 ## How it works
@@ -58,3 +58,4 @@ Automated tests cover AQI boundaries, forecast failures and cache fallback, city
 - [EPA home air cleaners](https://www.epa.gov/indoor-air-quality-iaq/guide-air-cleaners-home)
 - [EPA typical passenger vehicle emissions](https://www.epa.gov/greenvehicles/greenhouse-gas-emissions-typical-passenger-vehicle)
 - [EPA school bus idle reduction](https://www.epa.gov/dera/school-bus-idle-reduction)
+
