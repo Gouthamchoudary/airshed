@@ -5,6 +5,7 @@ export const cities = [
   ['Mumbai','India',19.076,72.878,'Asia/Kolkata'],
   ['Bengaluru','India',12.972,77.595,'Asia/Kolkata'],
   ['Hyderabad','India',17.385,78.487,'Asia/Kolkata'],
+  ['Panaji','India',15.498,73.827,'Asia/Kolkata'],
   ['Warangal','India',17.969,79.594,'Asia/Kolkata'],
   ['Kolkata','India',22.573,88.364,'Asia/Kolkata'],
   ['Chennai','India',13.083,80.271,'Asia/Kolkata'],
@@ -64,7 +65,8 @@ export async function searchCities(query) {
   const term = String(query || '').trim().slice(0, 100);
   if (!term) return cities.slice(0, 6);
   const lower = term.toLowerCase();
-  const presets = cities.filter(city => city.name.toLowerCase().includes(lower));
+  const presetTerm = ['goa', 'panjim', 'panaji goa'].includes(lower) ? 'panaji' : lower;
+  const presets = cities.filter(city => city.name.toLowerCase().includes(presetTerm));
   if (term.length < 2) return presets;
   const params = new URLSearchParams({name:term, count:'8', language:'en', format:'json'});
   try {
