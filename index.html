@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f7f7f0">
+  <meta name="description" content="Airshed turns local air forecasts into practical household routines, indoor air choices and shareable community briefs.">
+  <title>Airshed | Your daily air brief</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="assets/instrument-serif.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/dm-sans.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to dashboard</a>
+  <header class="masthead">
+    <div class="nav-inner">
+      <a class="brand" href="#overview" aria-label="Airshed overview"><img src="favicon.svg" width="36" height="36" alt="">Airshed</a>
+      <nav aria-label="Main navigation">
+        <a href="#overview" class="nav-link active">Overview</a>
+        <a href="#plan" class="nav-link">Action plan</a>
+        <a href="#impact" class="nav-link">Impact lab</a>
+        <a href="#community" class="nav-link">Community</a>
+      </nav>
+      <a class="button nav-ask" href="#ask"><i data-icon="spark"></i> Ask Airshed</a>
+    </div>
+  </header>
+  <main id="main" class="page">
+    <section id="overview" aria-labelledby="brief-heading">
+      <div class="intro">
+        <div>
+          <p class="eyebrow date-line"><span class="short-rule"></span><span id="date">LOCAL AIR INTELLIGENCE</span></p>
+          <h1 id="brief-heading">The daily air brief<span>.</span></h1>
+          <p class="intro-sub">Local air conditions and practical choices for your household.</p>
+        </div>
+        <div class="context-controls">
+          <button id="city-button" class="button location-button"><i data-icon="pin"></i><span id="current-city">Delhi</span><i data-icon="chevron"></i></button>
+          <button id="profile-button" class="button profile-button"><i data-icon="sliders"></i><span>Household</span></button>
+        </div>
+      </div>
+      <div class="conditions-grid">
+        <article class="air-card" aria-labelledby="conditions-heading">
+          <div class="air-art">
+            <div class="air-caption"><span class="eyebrow"><i data-icon="waves"></i> Air conditions</span><button class="art-source" id="air-source" title="Change data mode"></button></div>
+            <div class="air-reading">
+              <h2 id="conditions-heading">Air Quality Index</h2>
+              <div class="aq-line"><strong id="aqi">–</strong><span>US AQI</span></div>
+              <span class="category" id="category"><span class="severity-dot"></span>Loading</span>
+            </div>
+          </div>
+          <div class="measurements">
+            <div><span class="measurement-label">Fine particles <b>PM2.5</b></span><strong id="pm25">–</strong><small> µg/m³</small></div>
+            <div><span class="measurement-label">Coarse particles <b>PM10</b></span><strong id="pm10">–</strong><small> µg/m³</small></div>
+            <button class="measurement-source" id="source-button"><i data-icon="info"></i><span>About this data</span></button>
+          </div>
+        </article>
+        <article class="forecast-card" aria-labelledby="forecast-heading">
+          <div class="forecast-top"><span class="eyebrow"><i data-icon="chart"></i> Hourly outlook</span><span class="small-label" id="forecast-zone">Local time</span></div>
+          <div class="forecast-header"><h2 id="forecast-heading">The next 24 hours</h2></div>
+          <div class="metric-tabs" aria-label="Forecast metric"><button data-metric="aqi" aria-pressed="true">US AQI</button><button data-metric="pm25" aria-pressed="false">PM2.5</button></div>
+          <div id="chart" class="chart" aria-label="Hourly air forecast"></div>
+          <div class="forecast-insight"><i data-icon="clock"></i><div><span id="forecast-label">Lower-pollution hour</span><strong id="forecast-detail">Checking the hourly forecast…</strong></div></div>
+        </article>
+      </div>
+      <div class="data-note"><span><span class="read-dot"></span><span id="source-caption" aria-live="polite">Preparing your air brief…</span></span><button id="switch-mode" class="text-button"></button></div>
+    </section>
+    <section id="plan" class="section plan-section" aria-labelledby="plan-heading">
+      <div class="section-top"><div><p class="eyebrow"><span class="short-rule"></span> Household guide</p><h2 id="plan-heading">Your action plan</h2></div><button id="edit-profile" class="profile-tag"><i data-icon="users"></i><span id="profile-summary">Family household</span><i data-icon="edit"></i></button></div>
+      <div class="plan-tools"><div class="filters" aria-label="Filter actions"><button data-filter="All" aria-pressed="true">All actions</button><button data-filter="Routine" aria-pressed="false">Routine</button><button data-filter="Indoors" aria-pressed="false">Indoors</button><button data-filter="Community" aria-pressed="false">Community</button></div><span id="plan-progress" aria-live="polite"></span></div>
+      <div id="plan-list" class="plan-grid"></div>
+    </section>
+    <section id="ask" class="section ask-section" aria-labelledby="ask-heading">
+      <div class="ask-intro"><span class="ai-emblem"><i data-icon="spark"></i></span><div><p class="eyebrow">Household assistant</p><h2 id="ask-heading">Ask Airshed</h2><p>Ask about a school run, cooking, or a neighbourhood outing. Your brief gives the assistant local context.</p></div></div>
+      <div class="chat-area">
+        <div id="thread" class="chat-thread" aria-live="polite"></div>
+        <div class="suggestions" aria-label="Suggested questions"><button>Can we move outdoor play?</button><button>How can I cook with less smoke?</button><button>Plan a cleaner school run</button></div>
+        <form id="ask-form"><label class="sr-only" for="question">Ask a question about air quality</label><textarea rows="2" maxlength="600" id="question" placeholder="What would you like to plan?" required></textarea><button id="ask-submit" type="submit" aria-label="Send question"><i data-icon="send"></i></button></form>
+        <label class="cloud-control"><input type="checkbox" id="cloud-ai"><span><b>Use online AI</b> · Send this question, city, air conditions and selected household profile to the online model for this answer. With this off, answers run on your device.</span></label>
+        <div class="chat-meta"><span><i data-icon="shield"></i> Grounded in your local brief</span><span id="ask-status" role="status"></span></div>
+      </div>
+    </section>
+    <section class="section lab-grid">
+      <article id="impact" class="lab-card" aria-labelledby="impact-heading">
+        <p class="eyebrow"><i data-icon="route"></i> Impact lab</p>
+        <h2 id="impact-heading">Compare a commute</h2>
+        <p class="section-description">Replace one solo car trip and estimate the change in transport emissions.</p>
+        <div class="distance-label"><label for="distance">One-way distance</label><output for="distance" id="distance-value">8 km</output></div>
+        <input type="range" id="distance" min="1" max="60" value="8" step="1">
+        <div class="lab-fields"><label>Alternative<select id="alternative"><option value="transit">Public transit</option><option value="carpool">Two-person carpool</option><option value="remote">Avoid the trip</option><option value="cycle">Cycle</option><option value="walk">Walk</option></select></label><label>Households<input id="households" type="number" value="1" min="1" max="1000" step="1"></label></div>
+        <div class="impact-answer" aria-live="polite"><i data-icon="leaf"></i><div><strong id="impact-result">–</strong><span>estimated CO₂ avoided per trip</span></div></div>
+        <p class="travel-cue" id="travel-cue" hidden></p>
+        <details class="method"><summary>Calculation and assumptions</summary><p id="impact-method"></p></details>
+      </article>
+      <article id="community" class="community-card" aria-labelledby="community-heading">
+        <p class="eyebrow"><i data-icon="megaphone"></i> Community desk</p><h2 id="community-heading">Pass the brief on</h2><p class="section-description">A ready-to-share update for your apartment group, school, or neighbourhood.</p>
+        <div class="community-paper"><div class="paper-top"><i data-icon="waves"></i><strong>Airshed bulletin</strong></div><div id="brief-preview"></div></div>
+        <div class="share-buttons"><button id="copy-brief" class="button solid"><i data-icon="copy"></i><span>Copy brief</span></button><button id="download-brief" class="button"><i data-icon="download"></i>Save as text</button></div><span class="sr-only" id="share-status" role="status"></span>
+      </article>
+    </section>
+  </main>
+  <footer><div class="footer-inner"><a class="brand footer-brand" href="#overview"><img src="favicon.svg" width="27" height="27" alt="">Airshed</a><span>Air quality field guide</span><button id="footer-source" class="text-button">Data &amp; methodology</button><a class="text-button" href="demo.html">Watch demo</a></div></footer>
+  <dialog id="modal"><div class="modal-top"><h2 id="modal-title"></h2><button id="close-modal" class="icon-button" aria-label="Close dialog"><i data-icon="close"></i></button></div><div id="modal-content"></div></dialog>
+  <div id="toast" role="status"></div>
+  <noscript><p class="no-script">Enable JavaScript to load your air forecast and household plan.</p></noscript>
+</body>
+</html>
