@@ -14,4 +14,3 @@ if (videoId) {
     document.querySelector('#screen').replaceChildren(player);
   });
 }
-

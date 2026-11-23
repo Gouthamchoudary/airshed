@@ -5,9 +5,16 @@
   "type": "module",
   "description": "A household field guide for winter smog and urban air pollution.",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "test:e2e": "playwright test",
+    "format:check": "prettier --check app.js engine.js api domain lib ui index.html styles.css demo.html demo-player.js genai/planner.js genai/engine.test.mjs tests e2e playwright.config.js"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22.12"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "1.65.1",
+    "prettier": "3.10.1"
   }
 }
