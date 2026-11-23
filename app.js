@@ -79,7 +79,8 @@ function paintConditions(loading=false) {
   const asOf = localParts(air.asOf,{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'});
   $('current-city').textContent = cityName;
   $('city-button').setAttribute('aria-label','Change location, currently '+cityName);
-  $('date').textContent = localParts(air.asOf,{weekday:'long',day:'numeric',month:'long',year:'numeric'}) || 'Local air intelligence';
+  const dateLine = localParts(air.asOf,{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  $('date').textContent = (demo && dateLine ? 'Scenario · ' : '')+(dateLine || 'Local air intelligence');
   $('aqi').textContent = fmt(air.aqi);
   $('pm25').textContent = fmt(air.pm25,1);
   $('pm10').textContent = fmt(air.pm10,1);
@@ -135,7 +136,10 @@ function renderPlan() {
   $('profile-summary').textContent = households[profile.household];
   $('plan-progress').textContent = currentPlan.filter(p=>saved.has(p.id)).length+' of '+currentPlan.length+' done';
   document.querySelectorAll('[data-filter]').forEach(el=>el.setAttribute('aria-pressed',String(el.dataset.filter===actionFilter)));
-  const display = actionFilter==='All' ? currentPlan : currentPlan.filter(p=>p.group===actionFilter);
+  const byGroup = Object.keys(groupDesign).map(group=>currentPlan.filter(action=>action.group===group));
+  const display = actionFilter==='All'
+    ? Array.from({length:Math.max(0,...byGroup.map(group=>group.length))},(_,i)=>byGroup.map(group=>group[i]).filter(Boolean)).flat()
+    : currentPlan.filter(p=>p.group===actionFilter);
   $('plan-list').innerHTML = display.map(action => {
     const done = saved.has(action.id), g = groupDesign[action.group] || groupDesign.Routine;
     const url = safeLink(action.sourceUrl);
