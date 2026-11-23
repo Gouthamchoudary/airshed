@@ -1,7 +1,9 @@
 import { byId } from './dom.js';
 
 export function bindNavigation() {
-  const navLinks = Array.from(document.querySelectorAll('.nav-link'));
+  const navLinks = [...document.querySelectorAll('a.nav-link')].filter(
+    (link) => link instanceof HTMLAnchorElement,
+  );
   function highlightNav() {
     let active = 'overview';
     for (const id of ['overview', 'plan', 'ask', 'impact', 'community']) {

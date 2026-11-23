@@ -3,13 +3,13 @@ import { byId } from './dom.js';
 import { formatNumber } from './format.js';
 
 export function createImpactView() {
-  const distance = byId('distance');
-  const alternative = byId('alternative');
-  const households = byId('households');
+  const distance = byId('distance', 'input');
+  const alternative = byId('alternative', 'select');
+  const households = byId('households', 'input');
   const result = byId('impact-result');
   const method = byId('impact-method');
   const cue = byId('travel-cue');
-  let aqi;
+  let aqi = 0;
 
   function render() {
     const kilometers = Number(distance.value);
@@ -37,12 +37,14 @@ export function createImpactView() {
 
   for (const field of [distance, alternative, households]) field.addEventListener('input', render);
   return {
+    /** @param {import('../types/contracts.js').AirForecast} air */
     update(air) {
       aqi = air.aqi;
       render();
     },
+    /** @param {number} kilometers */
     setDistance(kilometers) {
-      distance.value = kilometers;
+      distance.value = String(kilometers);
     },
   };
 }

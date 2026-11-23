@@ -153,3 +153,19 @@ test('model weights are fetched only after the first assistant question', async 
   await expect(page.getByRole('log', { name: 'Conversation' }).locator('.assistant')).toBeVisible();
   expect(loads).toHaveLength(1);
 });
+
+test('the demo offers a direct video link and a playable preview', async ({ page }) => {
+  await page.route('https://drive.google.com/**', (route) =>
+    route.fulfill({ body: 'Test preview' }),
+  );
+  await page.goto('/demo.html');
+  await expect(page.getByRole('link', { name: 'Watch on Google Drive' })).toHaveAttribute(
+    'href',
+    /drive\.google\.com.*\/view$/,
+  );
+  await page.getByRole('button', { name: 'Play walkthrough' }).click();
+  await expect(page.locator('iframe[title="Airshed product walkthrough"]')).toHaveAttribute(
+    'src',
+    /drive\.google\.com.*\/preview$/,
+  );
+});

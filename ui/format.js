@@ -1,3 +1,4 @@
+/** @param {number} number */
 export function formatNumber(number, digits = 0) {
   return Number.isFinite(number)
     ? number.toLocaleString('en', { maximumFractionDigits: digits })
@@ -6,6 +7,11 @@ export function formatNumber(number, digits = 0) {
 
 // Open-Meteo returns wall-clock timestamps, so treat a zone-less string as
 // already local to the city and prevent the browser from applying its own offset.
+/**
+ * @param {string | number | null | undefined} value
+ * @param {string} timezone
+ * @param {Intl.DateTimeFormatOptions} options
+ */
 export function formatLocal(value, timezone, options) {
   if (value == null) return '';
   const text = String(value);

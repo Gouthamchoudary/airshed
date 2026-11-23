@@ -1,6 +1,6 @@
 import { getAir, getDemoAir } from './domain/air-quality.js';
 import { cities, isCity } from './domain/geography.js';
-import { boundedNumber } from './domain/impact.js';
+import { boundedNumber, record } from './lib/data.js';
 import { normalizeProfile } from './domain/profile.js';
 import { readJSON, writeJSON } from './lib/storage.js';
 import { createActionPlan } from './ui/actions.js';
@@ -19,19 +19,23 @@ const PROFILE_KEY = 'airshed-v1:profile';
 populateIcons();
 
 const storedCity = readJSON(CITY_KEY);
-const storedProfile = readJSON(PROFILE_KEY, {});
+const storedProfile = record(readJSON(PROFILE_KEY));
 let city = isCity(storedCity) ? storedCity : cities[0];
 let profile = normalizeProfile({
   ...storedProfile,
   distanceKm: boundedNumber(Number(storedProfile.distanceKm) || 8, 1, 60, 8),
 });
+/** @type {import('./types/contracts.js').DataMode} */
 let mode = new URLSearchParams(location.search).get('demo') === '1' ? 'demo' : 'live';
-let air;
-let request;
+let air = getDemoAir(city);
+/** @type {AbortController | null} */
+let request = null;
+/** @type {ReturnType<typeof setTimeout> | undefined} */
 let toastTimer;
 
 const dialogs = createDialogs();
 const forecastView = createForecastView({
+  initialAir: air,
   onChooseMode: (source) => dialogs.chooseMode(source, loadConditions),
   onSwitchMode: loadConditions,
 });
@@ -40,6 +44,7 @@ const chat = createChat();
 const impact = createImpactView();
 const community = createCommunityView({ showToast, showCopyText: dialogs.showCopyText });
 
+/** @param {string} message */
 function showToast(message) {
   clearTimeout(toastTimer);
   const toast = byId('toast');
@@ -60,6 +65,7 @@ function render(loading = false) {
   updatePlan(loading);
 }
 
+/** @param {import('./types/contracts.js').DataMode} nextMode */
 async function loadConditions(nextMode) {
   mode = nextMode;
   request?.abort();

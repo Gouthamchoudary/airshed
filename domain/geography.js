@@ -1,8 +1,10 @@
+import { nonEmptyString, record } from '../lib/data.js';
 import { fetchJSON } from '../lib/http.js';
 
 const GEO = 'https://geocoding-api.open-meteo.com/v1/search';
 
-export const cities = [
+/** @type {[string, string, number, number, string][]} */
+const presets = [
   ['New Delhi', 'India', 28.614, 77.209, 'Asia/Kolkata'],
   ['Mumbai', 'India', 19.076, 72.878, 'Asia/Kolkata'],
   ['Bengaluru', 'India', 12.972, 77.595, 'Asia/Kolkata'],
@@ -19,17 +21,41 @@ export const cities = [
   ['London', 'United Kingdom', 51.507, -0.128, 'Europe/London'],
   ['New York', 'United States', 40.713, -74.006, 'America/New_York'],
   ['Los Angeles', 'United States', 34.052, -118.244, 'America/Los_Angeles'],
-].map(([name, country, lat, lon, timezone]) => ({ name, country, lat, lon, timezone }));
+];
 
-export const isCity = (c) =>
-  Boolean(c) &&
-  typeof c.name === 'string' &&
-  c.name.trim().length > 0 &&
-  Number.isFinite(c.lat) &&
-  Math.abs(c.lat) <= 90 &&
-  Number.isFinite(c.lon) &&
-  Math.abs(c.lon) <= 180;
+export const cities = presets.map(([name, country, lat, lon, timezone]) => ({
+  name,
+  country,
+  lat,
+  lon,
+  timezone,
+}));
 
+/**
+ * @param {unknown} value
+ * @returns {value is import('../types/contracts.js').City}
+ */
+export function isCity(value) {
+  const { name, lat, lon, ...metadata } = record(value);
+  const coordinates =
+    typeof lat === 'number' &&
+    Math.abs(lat) <= 90 &&
+    typeof lon === 'number' &&
+    Math.abs(lon) <= 180;
+  return (
+    nonEmptyString(name) &&
+    coordinates &&
+    ['country', 'timezone', 'region', 'admin1'].every(
+      (key) => metadata[key] === undefined || typeof metadata[key] === 'string',
+    )
+  );
+}
+
+/**
+ * @param {unknown} query
+ * @param {{signal?: AbortSignal}} [options]
+ * @returns {Promise<import('../types/contracts.js').City[]>}
+ */
 export async function searchCities(query, { signal } = {}) {
   const term = String(query || '')
     .trim()
@@ -41,18 +67,22 @@ export async function searchCities(query, { signal } = {}) {
   if (term.length < 2) return presets;
   const params = new URLSearchParams({ name: term, count: '8', language: 'en', format: 'json' });
   try {
-    const json = await fetchJSON(GEO + '?' + params, 3500, { signal });
-    const remote = (Array.isArray(json?.results) ? json.results : [])
-      .filter(Boolean)
-      .map((r) => ({
-        name: r.name,
-        country: r.country || r.country_code || '',
-        region: r.admin1 || '',
-        lat: r.latitude,
-        lon: r.longitude,
-        timezone: r.timezone || 'UTC',
-      }))
-      .filter(isCity);
+    const { results } = record(await fetchJSON(`${GEO}?${params}`, 3500, { signal }));
+    /** @type {unknown[]} */
+    const candidates = Array.isArray(results) ? results : [];
+    /** @type {unknown[]} */
+    const mapped = candidates.map((result) => {
+      const { name, country, country_code, admin1, latitude, longitude, timezone } = record(result);
+      return {
+        name,
+        lat: latitude,
+        lon: longitude,
+        country: [country, country_code].find(nonEmptyString) ?? '',
+        region: nonEmptyString(admin1) ? admin1 : '',
+        timezone: nonEmptyString(timezone) ? timezone : 'UTC',
+      };
+    });
+    const remote = mapped.filter(isCity);
     return [...presets, ...remote]
       .filter(
         (city, i, all) =>

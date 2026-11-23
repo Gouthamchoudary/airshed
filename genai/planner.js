@@ -3,6 +3,7 @@ import checkpoint from './weights.js';
 // The trained decoder predicts an action token, then conditions the next
 // prediction on that token, current air conditions, household, and question.
 const vocabulary = new Map(checkpoint.features.map((word, index) => [word, index]));
+/** @param {{data: string, scale: number}} tensor */
 function unpack({ data, scale }) {
   const bytes = Uint8Array.from(atob(data), (ch) => ch.charCodeAt(0));
   const view = new DataView(bytes.buffer);
@@ -17,6 +18,7 @@ const layers = checkpoint.layers.map(({ weights, bias }) => ({
   width: weights.shape[1],
 }));
 
+/** @param {Float32Array} input */
 function forward(input) {
   let vector = input;
   for (const [i, layer] of layers.entries()) {
@@ -32,6 +34,7 @@ function forward(input) {
   return vector;
 }
 
+/** @param {number} aqi */
 function airBand(aqi) {
   if (aqi <= 100) return 'low';
   if (aqi <= 150) return 'elevated';
@@ -40,6 +43,7 @@ function airBand(aqi) {
   return 'hazardous';
 }
 
+/** @type {Record<string, string>} */
 const synonyms = {
   grandma: 'elderly',
   grandparent: 'elderly',
@@ -76,10 +80,16 @@ const synonyms = {
   costless: 'free',
 };
 
+/**
+ * @param {string} question
+ * @param {number} aqi
+ * @param {Pick<import('../types/contracts.js').Profile, 'household' | 'commute'>} profile
+ * @returns {string[]}
+ */
 export function decodeActions(question, aqi, profile) {
   const tokens = question.toLowerCase().match(/[a-z0-9]+/g) || [];
   const context = new Set(tokens);
-  for (const word of tokens) if (synonyms[word]) context.add(synonyms[word]);
+  for (const word of tokens) if (Object.hasOwn(synonyms, word)) context.add(synonyms[word]);
   context.add('band:' + airBand(aqi));
   context.add('group:' + profile.household);
   context.add('mode:' + profile.commute);
@@ -88,18 +98,26 @@ export function decodeActions(question, aqi, profile) {
     const index = vocabulary.get(word);
     if (index !== undefined) features[index] = 1;
   }
+  /** @type {string[]} */
   const actions = [];
   let previous = 'start';
   for (let step = 0; step < 3; step++) {
     const input = new Float32Array(features);
-    input[vocabulary.get('prev:' + previous)] = 1;
+    const previousIndex = vocabulary.get('prev:' + previous);
+    if (previousIndex === undefined) break;
+    input[previousIndex] = 1;
     const scores = forward(input);
-    const candidates = checkpoint.actions
-      .map((token, index) => ({ token, score: scores[index] }))
-      .filter(({ token }) => !actions.includes(token) && (step > 0 || token !== 'end'))
-      .sort((a, b) => b.score - a.score);
-    previous = candidates[0].token;
-    if (previous === 'end') break;
+    let bestToken = 'end';
+    let bestScore = -Infinity;
+    for (const [index, token] of checkpoint.actions.entries()) {
+      if (actions.includes(token) || (step === 0 && token === 'end')) continue;
+      if (scores[index] > bestScore) {
+        bestScore = scores[index];
+        bestToken = token;
+      }
+    }
+    if (bestToken === 'end') break;
+    previous = bestToken;
     actions.push(previous);
   }
   return actions;

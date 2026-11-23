@@ -60,7 +60,7 @@ test('winter exercise stays clearly synthetic across midnight and cities', () =>
 });
 
 test('data flow tries the real endpoint, caches valid data, then handles incomplete data', async (t) => {
-  let storage = new Map();
+  const storage = new Map();
   t.mock.method(globalThis, 'fetch', async (url) => {
     assert.equal(new URL(url).hostname, 'air-quality-api.open-meteo.com');
     return Response.json(payload());
@@ -223,4 +223,38 @@ test('an unknown mode uses the transit baseline even when it matches an inherite
   for (const mode of ['unknown', 'constructor', '__proto__']) {
     assert.deepEqual(getImpact(12, mode), getImpact(12, 'transit'));
   }
+});
+
+test('invalid provider dates and timezones fall back to the labeled exercise', async (t) => {
+  let current = payload();
+  t.mock.method(globalThis, 'fetch', async () => Response.json(current));
+  for (const invalid of [
+    { ...payload(), timezone: 'Not/AZone' },
+    { ...payload(), current: { ...payload().current, time: '2026-02-30T12:00' } },
+  ]) {
+    current = invalid;
+    const fallback = await getAir(cities[0]);
+    assert.equal(fallback.source, 'demo');
+    assert.match(fallback.scenarioReason, /unavailable/);
+  }
+});
+
+test('valid forecast hours are sorted and duplicate timestamps are removed', async (t) => {
+  const result = payload();
+  result.hourly = {
+    time: [localHour(2), localHour(0), localHour(1), localHour(1), 'not-a-time'],
+    us_aqi: [165, 154, 149, 151, 1],
+    pm2_5: [62, 57, 54, 55, 1],
+  };
+  t.mock.method(globalThis, 'fetch', async () => Response.json(result));
+  const forecast = await getAir(cities[0]);
+  assert.equal(forecast.source, 'live');
+  assert.deepEqual(
+    forecast.hours.map((hour) => hour.time),
+    [localHour(0), localHour(1), localHour(2)],
+  );
+  assert.deepEqual(
+    forecast.hours.map((hour) => hour.aqi),
+    [154, 151, 165],
+  );
 });

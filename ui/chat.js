@@ -1,21 +1,29 @@
 import { byId, element, sourceLink } from './dom.js';
 
 export function createChat() {
-  const questionField = byId('question');
+  const questionField = byId('question', 'textarea');
   const thread = byId('thread');
-  const send = byId('ask-submit');
-  const consent = byId('cloud-ai');
+  const send = byId('ask-submit', 'button');
+  const consent = byId('cloud-ai', 'input');
   const status = byId('ask-status');
+  /** @type {{air: import('../types/contracts.js').AirForecast, profile: import('../types/contracts.js').Profile} | undefined} */
   let context;
   let sequence = 0;
-  let pending;
+  /** @type {AbortController | null} */
+  let pending = null;
 
+  /**
+   * @param {'user' | 'assistant'} role
+   * @param {string} label
+   * @param {string} text
+   * @param {import('../types/contracts.js').Citation[]} citations
+   */
   function appendEntry(role, label, text, citations = []) {
     const item = element('div', { class: `chat-entry ${role}` });
     item.append(element('strong', { text: label }), element('p', { text }));
     const links = citations
       .map((source) => sourceLink(source.url, source.title || 'Source'))
-      .filter(Boolean);
+      .filter((link) => link !== null);
     if (links.length) {
       const refs = element('div', { class: 'chat-sources' });
       refs.append(...links);
@@ -80,12 +88,16 @@ export function createChat() {
   for (const button of document.querySelectorAll('.suggestions button')) {
     button.addEventListener('click', () => {
       if (send.disabled) return;
-      questionField.value = button.textContent;
+      questionField.value = button.textContent ?? '';
       submit();
     });
   }
 
   return {
+    /**
+     * @param {import('../types/contracts.js').AirForecast} air
+     * @param {import('../types/contracts.js').Profile} profile
+     */
     setContext(air, profile, loading = false) {
       sequence++;
       pending?.abort();

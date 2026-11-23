@@ -72,6 +72,8 @@ test('rejects malformed input, unknown context, non-finite AQI and large payload
     { ...context, actions: [null] },
     { ...context, question: ' ' },
     { ...context, commute: 'jet' },
+    { ...context, household: ['family'] },
+    { ...context, commute: ['car'] },
   ]) {
     assert.equal((await run(request(input))).code, 400);
   }

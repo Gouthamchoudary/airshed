@@ -10,3 +10,8 @@ README.md
 *.test.*
 e2e
 playwright.config.js
+
+types
+tsconfig.json
+eslint.config.js
+.prettierrc.json

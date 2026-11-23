@@ -40,16 +40,22 @@ const methodologyMarkup = `
   <div><h3>Transport emissions</h3><p>The impact lab compares estimated tailpipe CO₂ from one trip. Its assumptions appear below the calculator. Exposure also depends on route, duration and activity.</p></div></div>
 `;
 
+/**
+ * @param {HTMLSelectElement} select
+ * @param {Record<string, string>} labels
+ * @param {string} selected
+ */
 function setOptions(select, labels, selected) {
   select.replaceChildren(...Object.entries(labels).map(([key, label]) => new Option(label, key)));
   select.value = selected;
 }
 
 export function createDialogs() {
-  const dialog = byId('modal');
+  const dialog = byId('modal', 'dialog');
   const content = byId('modal-content');
   let session = new AbortController();
 
+  /** @param {string} title @param {string} staticMarkup */
   function open(title, staticMarkup) {
     session.abort();
     session = new AbortController();
@@ -79,14 +85,18 @@ export function createDialogs() {
       close();
   });
 
+  /** @param {(city: import('../types/contracts.js').City) => void} onSelect */
   function chooseCity(onSelect) {
     const signal = open('Choose your city', cityMarkup);
-    const input = byId('city-search');
+    const input = byId('city-search', 'input');
     const list = byId('city-list');
     const status = byId('city-status');
+    /** @type {ReturnType<typeof setTimeout> | undefined} */
     let timer;
+    /** @type {AbortController | undefined} */
     let request;
 
+    /** @param {import('../types/contracts.js').City[]} results */
     function draw(results, announce = true) {
       const choices = results.map((city) => {
         const button = element('button', { class: 'city-option', type: 'button' });
@@ -147,26 +157,35 @@ export function createDialogs() {
 
   return {
     chooseCity,
+    /**
+     * @param {import('../types/contracts.js').Profile} profile
+     * @param {(profile: import('../types/contracts.js').Profile) => void} onSave
+     */
     editProfile(profile, onSave) {
       open('Your household', profileMarkup);
-      setOptions(byId('profile-household'), householdLabels, profile.household);
-      setOptions(byId('profile-commute'), commuteLabels, profile.commute);
-      byId('profile-distance').value = profile.distanceKm;
+      setOptions(byId('profile-household', 'select'), householdLabels, profile.household);
+      setOptions(byId('profile-commute', 'select'), commuteLabels, profile.commute);
+      byId('profile-distance', 'input').value = String(profile.distanceKm);
       byId('profile-form').addEventListener('submit', (event) => {
         event.preventDefault();
         const next = normalizeProfile({
-          household: byId('profile-household').value,
-          commute: byId('profile-commute').value,
-          distanceKm: Number(byId('profile-distance').value),
+          household: byId('profile-household', 'select').value,
+          commute: byId('profile-commute', 'select').value,
+          distanceKm: Number(byId('profile-distance', 'input').value),
         });
         close();
         onSave(next);
       });
     },
+    /**
+     * @param {import('../types/contracts.js').AirSource} source
+     * @param {(mode: import('../types/contracts.js').DataMode) => void} onSelect
+     */
     chooseMode(source, onSelect) {
       open('Air data mode', modeMarkup);
       for (const button of content.querySelectorAll('[data-mode]')) {
-        const { mode } = button.dataset;
+        const mode = button.getAttribute('data-mode');
+        if (mode !== 'live' && mode !== 'demo') continue;
         button.setAttribute('aria-pressed', String((mode === 'demo') === (source === 'demo')));
         button.addEventListener('click', () => {
           close();
@@ -177,6 +196,7 @@ export function createDialogs() {
     showMethodology() {
       open('Data & methodology', methodologyMarkup);
     },
+    /** @param {string} brief */
     showCopyText(brief) {
       open(
         'Copy your brief',
@@ -185,7 +205,7 @@ export function createDialogs() {
         <textarea class="field" rows="9" id="copy-text" readonly></textarea>
       `,
       );
-      const field = byId('copy-text');
+      const field = byId('copy-text', 'textarea');
       field.value = brief;
       field.focus();
       field.select();

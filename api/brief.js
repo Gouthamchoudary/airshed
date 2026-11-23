@@ -1,10 +1,16 @@
 import { createHash } from 'node:crypto';
-import { commuteLabels, householdLabels } from '../domain/profile.js';
+import { isCommute, isHousehold } from '../domain/profile.js';
+import { record } from '../lib/data.js';
+
+/** @typedef {import('node:http').IncomingMessage & {body?: unknown}} BriefHttpRequest */
+/** @typedef {{setHeader(name: string, value: string): unknown, status(code: number): BriefHttpResponse, json(body: object): unknown}} BriefHttpResponse */
+/** @typedef {import('../types/contracts.js').BriefRequest} BriefRequest */
 
 const MODEL = 'google/gemini-2.5-flash-lite';
 const GATEWAY = 'https://ai-gateway.vercel.sh/v1/chat/completions';
 const MAX_BODY_BYTES = 8192;
 const WINDOW_MS = 60000;
+/** @type {Map<string, {count: number, until: number}>} */
 const windows = new Map();
 
 const instructions = [
@@ -18,30 +24,30 @@ const instructions = [
   'Answer in the language of the question if possible. Use at most 110 words. No markdown tables, citations or headings.',
 ].join('\n');
 
+/** @param {unknown} value @param {number} max @returns {value is string} */
 function validText(value, max) {
   return typeof value === 'string' && value.trim().length > 0 && value.length <= max;
 }
 
+/** @param {unknown} payload @returns {payload is BriefRequest} */
 function validate(payload) {
-  if (!payload || !validText(payload.question, 600) || !validText(payload.city, 120)) return false;
-  if (!Number.isFinite(payload.aqi) || payload.aqi < 0 || payload.aqi > 1000) return false;
-  if (!['live', 'cached', 'demo'].includes(payload.source)) return false;
-  if (!Object.hasOwn(householdLabels, payload.household)) return false;
-  if (!Object.hasOwn(commuteLabels, payload.commute)) return false;
+  const { question, city, aqi, source, household, commute, actions } = record(payload);
+  if (!validText(question, 600) || !validText(city, 120)) return false;
+  if (typeof aqi !== 'number' || !Number.isFinite(aqi) || aqi < 0 || aqi > 1000) return false;
+  if (source !== 'live' && source !== 'cached' && source !== 'demo') return false;
+  if (!isHousehold(household) || !isCommute(commute)) return false;
   return (
-    Array.isArray(payload.actions) &&
-    payload.actions.length <= 6 &&
-    payload.actions.every(
-      (item) =>
-        item &&
-        validText(item.title, 160) &&
-        validText(item.action, 550) &&
-        validText(item.impact, 550),
-    )
+    Array.isArray(actions) &&
+    actions.length <= 6 &&
+    actions.every((value) => {
+      const { title, action, impact } = record(value);
+      return validText(title, 160) && validText(action, 550) && validText(impact, 550);
+    })
   );
 }
 
 // Limits burst traffic on each warm function instance. No raw IP or question is retained.
+/** @param {string} client */
 function allowRequest(client, now = Date.now()) {
   const key = createHash('sha256').update(client).digest('hex');
   const entry = windows.get(key);
@@ -52,6 +58,7 @@ function allowRequest(client, now = Date.now()) {
   return true;
 }
 
+/** @param {BriefHttpRequest} req */
 function trustedOrigin(req) {
   if (!req.headers.origin) return true;
   try {
@@ -61,6 +68,7 @@ function trustedOrigin(req) {
   }
 }
 
+/** @param {BriefHttpRequest} req @param {BriefHttpResponse} res */
 export default async function brief(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') {
@@ -72,12 +80,13 @@ export default async function brief(req, res) {
   if (mediaType !== 'application/json') {
     return res.status(415).json({ error: 'Send application/json.' });
   }
+  /** @type {unknown} */
   let data;
   try {
     const raw = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
     if (Buffer.byteLength(raw || '') > MAX_BODY_BYTES)
       return res.status(413).json({ error: 'Brief too large.' });
-    data = JSON.parse(raw);
+    data = JSON.parse(raw ?? '');
   } catch {
     return res.status(400).json({ error: 'Invalid JSON.' });
   }
@@ -113,9 +122,10 @@ export default async function brief(req, res) {
         ],
       }),
     });
-    const result = await response.json().catch(() => null);
+    const result = record(await response.json().catch(() => null));
     if (response.ok) {
-      const answer = result?.choices?.[0]?.message?.content;
+      const first = Array.isArray(result.choices) ? record(result.choices[0]) : {};
+      const answer = record(first.message).content;
       if (typeof answer === 'string' && answer.trim()) {
         return res
           .status(200)
@@ -123,17 +133,7 @@ export default async function brief(req, res) {
       }
     }
     // Classify upstream problems without logging user input, provider messages or credentials.
-    const message = String(result?.error?.message || '');
-    const reason = /free tier|free credit|free model|available models/i.test(message)
-      ? 'model entitlement'
-      : /payment|credit|balance|billing/i.test(message)
-        ? 'balance'
-        : /enable|activate|sign.?up|verification|terms/i.test(message)
-          ? 'gateway activation'
-          : /authoriz|authentic|permission|token/i.test(message)
-            ? 'service identity'
-            : 'provider';
-    console.warn('Airshed gateway response', response.status, reason);
+    console.warn('Airshed gateway response', response.status);
   } catch {
     console.warn('Airshed gateway request unavailable');
   }

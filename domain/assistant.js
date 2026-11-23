@@ -1,7 +1,16 @@
 import { decodeActions } from '../genai/planner.js';
 import { fetchJSON } from '../lib/http.js';
+import { record } from '../lib/data.js';
 import { actionCatalog, sourceLabel, sources } from './guidance.js';
 import { normalizeProfile } from './profile.js';
+
+/** @typedef {import('../types/contracts.js').AirForecast} AirForecast */
+/** @typedef {import('../types/contracts.js').Profile} Profile */
+/** @typedef {import('../types/contracts.js').Action} Action */
+/** @typedef {import('../types/contracts.js').Grounding} Grounding */
+/** @typedef {import('../types/contracts.js').AssistantOptions} AssistantOptions */
+/** @typedef {{outlook: string, actions: Grounding[]}} Context */
+/** @typedef {(message: string) => void} StatusCallback */
 
 const scopeWords =
   /\b(air|aqi|smog|fine|pollut\w*|pm\s*2|pm10|clean\w*|carbon|emissions?|smok\w*|dust\w*|famil\w*|household|commut\w*|trip|travel|run|running|jog\w*|walk\w*|cycl\w*|recess|child\w*|kids?|school|cook\w*|fry\w*|steam|stove|food|meal|filter\w*|ventilat\w*|windows?|purif\w*|room|apartment|indoor\w*|outdoor\w*|exercise|play\w*|outside|cricket|sports?|elder\w*|seniors?|asthma|budget|candles?|incense|free|community|neigh\w*|residents?|bus|metro|cars?|workout|timing|hour\w*|forecast|errands?|today|routine|plan|sustainab\w*|protect|winter|activity|pickup|bicycl\w*|bike|park|particles?|idling)\b/i;
@@ -11,6 +20,7 @@ const medical =
   /\b(diagnos\w*|prescrib\w*|medicat\w*|dosage|dose|inhaler|medicine|treat my|asthma attack)\b/i;
 const LOCAL_LABEL = 'Airshed · on-device neural planner';
 
+/** @param {Action[]} acts */
 function safeSources(acts) {
   return [
     ...new Map(
@@ -19,9 +29,16 @@ function safeSources(acts) {
   ];
 }
 
+/**
+ * @param {string} question
+ * @param {Context} facts
+ * @param {StatusCallback} onStatus
+ * @param {AbortSignal} [signal]
+ */
 async function geminiNano(question, facts, onStatus, signal) {
   const api = globalThis.LanguageModel;
   if (!api?.availability) return '';
+  /** @type {PromptOptions} */
   const opts = {
     expectedInputs: [{ type: 'text', languages: ['en'] }],
     expectedOutputs: [{ type: 'text', languages: ['en'] }],
@@ -54,6 +71,7 @@ async function geminiNano(question, facts, onStatus, signal) {
   }
 }
 
+/** @param {string} question */
 function scopeResponse(question) {
   if (!question) return 'Ask about a commute, indoor air, outdoor activity or your community plan.';
   if (emergency.test(question)) {
@@ -68,13 +86,16 @@ function scopeResponse(question) {
   return null;
 }
 
+/** @param {string} question @param {Profile} profile @returns {Profile} */
 function profileForQuestion(question, profile) {
   // An adults-only profile can still ask about a child or older relative.
+  /** @type {[RegExp, Profile['household']][]} */
   const households = [
     [/\b(child\w*|kids?|toddler|baby|grandchildren)\b/i, 'family'],
     [/\b(elder\w*|senior\w*|grandparent\w*|grandmother|grandfather)\b/i, 'seniors'],
     [/\b(asthma|heart disease|lung disease)\b/i, 'sensitive'],
   ];
+  /** @type {[RegExp, Profile['commute']][]} */
   const commutes = [
     [/\b(?:i|we) (?:usually )?(?:bike|cycle|ride (?:my|a|our) (?:bike|bicycle)) to\b/i, 'cycle'],
     [/\b(?:i|we) (?:usually )?walk to\b/i, 'walk'],
@@ -87,12 +108,14 @@ function profileForQuestion(question, profile) {
   };
 }
 
+/** @param {string} question @param {AirForecast} air @param {Profile} profile */
 function selectActions(question, air, profile) {
   const effective = profileForQuestion(question, profile);
   const catalog = actionCatalog(air, effective);
+  const byId = new Map(Object.entries(catalog));
   const actions = decodeActions(question, air.aqi, effective)
-    .map((id) => catalog[id])
-    .filter(Boolean);
+    .map((id) => byId.get(id))
+    .filter((action) => action !== undefined);
   const needsOutdoorGuidance =
     air.aqi > 200 &&
     !actions.some((action) => action.id === 'activity') &&
@@ -100,28 +123,49 @@ function selectActions(question, air, profile) {
   return { actions, priority: needsOutdoorGuidance ? catalog.activity : null };
 }
 
+/**
+ * @param {string} question
+ * @param {AirForecast} air
+ * @param {Profile} profile
+ * @param {Grounding[]} actions
+ * @param {AbortSignal} [signal]
+ * @returns {Promise<import('../types/contracts.js').Rewrite | null>}
+ */
 async function onlineRewrite(question, air, profile, actions, signal) {
-  const reply = await fetchJSON('/api/brief', 24_000, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    signal,
-    body: JSON.stringify({
-      question,
-      city: air.city.name,
-      aqi: air.aqi,
-      source: air.source,
-      household: profile.household,
-      commute: profile.commute,
-      actions,
+  const reply = record(
+    await fetchJSON('/api/brief', 24_000, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal,
+      body: JSON.stringify({
+        question,
+        city: air.city.name,
+        aqi: air.aqi,
+        source: air.source,
+        household: profile.household,
+        commute: profile.commute,
+        actions,
+      }),
     }),
-  });
-  const text =
-    typeof reply?.text === 'string' && reply.text.length <= 3500 ? reply.text.trim() : '';
+  );
+  const text = typeof reply.text === 'string' && reply.text.length <= 3500 ? reply.text.trim() : '';
   return text.length > 12
-    ? { text, mode: 'cloud', label: reply.mode || 'Online language model' }
+    ? {
+        text,
+        mode: 'cloud',
+        label: typeof reply.mode === 'string' ? reply.mode : 'Online language model',
+      }
     : null;
 }
 
+/**
+ * @param {string} question
+ * @param {AirForecast} air
+ * @param {Profile} profile
+ * @param {Context} facts
+ * @param {AssistantOptions & {onStatus: StatusCallback}} options
+ * @returns {Promise<import('../types/contracts.js').Rewrite | null>}
+ */
 async function optionalRewrite(question, air, profile, facts, { cloud, onStatus, signal }) {
   try {
     if (cloud) {
@@ -136,6 +180,13 @@ async function optionalRewrite(question, air, profile, facts, { cloud, onStatus,
   }
 }
 
+/**
+ * @param {unknown} question
+ * @param {AirForecast} air
+ * @param {unknown} profile
+ * @param {AssistantOptions} options
+ * @returns {Promise<import('../types/contracts.js').Answer>}
+ */
 export async function askAssistant(
   question,
   air,

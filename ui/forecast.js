@@ -1,11 +1,17 @@
-import { byId, element, pressState } from './dom.js';
+import { byId, element, eventElement, pressState } from './dom.js';
 import { formatLocal, formatNumber } from './format.js';
+
+/** @typedef {import('../types/contracts.js').AirForecast} AirForecast */
+/** @typedef {import('../types/contracts.js').AirHour} AirHour */
+/** @typedef {import('../types/contracts.js').DataMode} DataMode */
+/** @typedef {import('../types/contracts.js').AirSource} AirSource */
 
 const metrics = {
   aqi: { title: 'AQI', digits: 0, unit: 'US AQI' },
   pm25: { title: 'PM2.5', digits: 1, unit: 'µg/m³ PM2.5' },
 };
 
+/** @type {[number,string][]} */
 const colors = [
   [50, '#739c73'],
   [100, '#b2a04c'],
@@ -15,10 +21,17 @@ const colors = [
   [Infinity, '#823c58'],
 ];
 
+/** @param {number} aqi */
 function colorFor(aqi) {
   return colors.find(([max]) => aqi <= max)?.[1] ?? '#739c73';
 }
 
+/**
+ * @param {AirForecast} air
+ * @param {DataMode} mode
+ * @param {boolean} loading
+ * @param {string} asOf
+ */
 function sourceCaption(air, mode, loading, asOf) {
   if (loading) return 'Checking the live forecast · showing a simulated winter scenario.';
   if (air.source === 'demo') {
@@ -33,20 +46,30 @@ function sourceCaption(air, mode, loading, asOf) {
   return asOf ? `${source} · ${asOf} local` : source;
 }
 
-export function createForecastView({ onChooseMode, onSwitchMode }) {
-  const chart = byId('chart');
+/**
+ * @param {{initialAir: AirForecast, onChooseMode: (source: AirSource) => void, onSwitchMode: (mode: DataMode) => void}} options
+ */
+export function createForecastView({ initialAir, onChooseMode, onSwitchMode }) {
+  const chart = byId('chart', 'div');
   const metricButtons = document.querySelectorAll('[data-metric]');
-  let air;
-  let mode;
+  let air = initialAir;
+  /** @type {DataMode} */
+  let mode = 'live';
   let loading = false;
+  /** @type {keyof typeof metrics} */
   let metric = 'aqi';
+  /** @type {AirHour[]} */
   let hours = [];
+  /** @type {number | null} */
   let selectedHour = null;
   let lowestHour = 0;
+  /** @type {HTMLButtonElement[]} */
   let bars = [];
 
+  /** @param {AirHour} hour */
   const hourLabel = (hour) =>
     formatLocal(hour.time, air.timezone, { hour: '2-digit', minute: '2-digit' });
+  /** @param {AirHour} hour */
   const readingLabel = (hour) =>
     `${formatNumber(hour[metric], metrics[metric].digits)} ${metrics[metric].unit}`;
 
@@ -64,6 +87,7 @@ export function createForecastView({ onChooseMode, onSwitchMode }) {
       `${weekday} ${hourLabel(hour)} · ${readingLabel(hour)}`.trim();
   }
 
+  /** @param {number} index */
   function selectHour(index) {
     if (!bars[index]) return;
     selectedHour = index;
@@ -135,13 +159,14 @@ export function createForecastView({ onChooseMode, onSwitchMode }) {
   }
 
   chart.addEventListener('click', (event) => {
-    const button = event.target.closest('[data-hour]');
-    if (button) selectHour(Number(button.dataset.hour));
+    const button = eventElement(event, '[data-hour]');
+    if (button) selectHour(Number(button.getAttribute('data-hour')));
   });
   chart.addEventListener('keydown', (event) => {
-    const button = event.target.closest('[data-hour]');
+    const button = eventElement(event, '[data-hour]');
     if (!button) return;
-    const current = Number(button.dataset.hour);
+    const current = Number(button.getAttribute('data-hour'));
+    /** @type {Record<string, number>} */
     const destinations = {
       ArrowLeft: current - 1,
       ArrowRight: current + 1,
@@ -154,7 +179,9 @@ export function createForecastView({ onChooseMode, onSwitchMode }) {
   });
   for (const button of metricButtons) {
     button.addEventListener('click', () => {
-      metric = button.dataset.metric;
+      const next = button.getAttribute('data-metric');
+      if (next !== 'aqi' && next !== 'pm25') return;
+      metric = next;
       drawChart();
     });
   }
@@ -165,6 +192,7 @@ export function createForecastView({ onChooseMode, onSwitchMode }) {
   });
 
   return {
+    /** @param {AirForecast} nextAir @param {DataMode} requestedMode */
     update(nextAir, requestedMode, pending = false) {
       air = nextAir;
       mode = requestedMode;

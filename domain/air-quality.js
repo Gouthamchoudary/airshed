@@ -1,3 +1,4 @@
+import { nonEmptyString, nonNegativeNumber, record } from '../lib/data.js';
 import { fetchJSON } from '../lib/http.js';
 import { readJSON, writeJSON } from '../lib/storage.js';
 import { cities, isCity } from './geography.js';
@@ -7,8 +8,14 @@ const CACHE_MAX_AGE_MS = 6 * 60 * 60_000;
 const CACHE_REFRESH_MS = 5 * 60_000;
 const HOUR_LIMIT = 24;
 
+/** @typedef {import('../types/contracts.js').AirForecast} AirForecast */
+/** @typedef {import('../types/contracts.js').AirHour} AirHour */
+/** @typedef {import('../types/contracts.js').City} City */
+
+/** @param {unknown} aqi */
 export function categoryFor(aqi) {
-  if (!Number.isFinite(aqi) || aqi < 0) return { label: 'Unavailable', color: '#6a7870' };
+  if (!nonNegativeNumber(aqi)) return { label: 'Unavailable', color: '#6a7870' };
+  /** @type {[number, string, string][]} */
   const categories = [
     [50, 'Good', '#197859'],
     [100, 'Moderate', '#9d7308'],
@@ -17,16 +24,55 @@ export function categoryFor(aqi) {
     [300, 'Very unhealthy', '#854d87'],
     [Infinity, 'Hazardous', '#79264c'],
   ];
-  const [, label, color] = categories.find(([max]) => aqi <= max);
+  const [, label, color] = categories.find(([max]) => aqi <= max) ?? [
+    Infinity,
+    'Hazardous',
+    '#79264c',
+  ];
   return { label, color };
 }
 
-const isReading = (value) => Number.isFinite(value) && value >= 0;
-const isHour = (hour) =>
-  typeof hour?.time === 'string' && isReading(hour.aqi) && isReading(hour.pm25);
+/**
+ * Times are city wall-clock values. Round-trip using UTC to validate the
+ * calendar without shifting the time to the user's device timezone.
+ * @param {unknown} value
+ * @returns {value is string}
+ */
+function isLocalTimestamp(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return false;
+  const date = new Date(value + 'Z');
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 16) === value;
+}
+
+/** @param {unknown} hour @returns {hour is AirHour} */
+function isHour(hour) {
+  const { time, aqi, pm25 } = record(hour);
+  return isLocalTimestamp(time) && nonNegativeNumber(aqi) && nonNegativeNumber(pm25);
+}
+
+/** @param {unknown} value @returns {value is string} */
+function isTimeZone(value) {
+  if (!nonEmptyString(value)) return false;
+  try {
+    new Intl.DateTimeFormat('en-GB', { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** @param {AirHour[]} hours @param {string} from */
+function upcomingHours(hours, from) {
+  return [
+    ...new Map(hours.filter((hour) => hour.time >= from).map((hour) => [hour.time, hour])).values(),
+  ]
+    .sort((first, second) => first.time.localeCompare(second.time))
+    .slice(0, HOUR_LIMIT);
+}
 
 // A repeatable, synthetic planning exercise. These are local wall-clock strings,
 // never parsed as the user's computer timezone. No measured data are implied.
+/** @param {City} city @returns {AirForecast} */
 export function getDemoAir(city = cities[0]) {
   const curve = [
     238, 243, 240, 229, 215, 197, 183, 171, 164, 168, 181, 203, 224, 241, 255, 264, 260, 250, 244,
@@ -57,6 +103,7 @@ export function getDemoAir(city = cities[0]) {
   };
 }
 
+/** @param {number} timestamp @param {string} timeZone */
 function cityHour(timestamp, timeZone) {
   const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone,
@@ -72,72 +119,88 @@ function cityHour(timestamp, timeZone) {
   return `${year}-${month}-${day}T${hour}:00`;
 }
 
+/**
+ * @param {string} key
+ * @param {number} now
+ * @returns {{ age: number; air: AirForecast } | null}
+ */
 function readForecastCache(key, now) {
-  const entry = readJSON(key);
-  if (!entry) return null;
-  const { savedAt, air } = entry;
+  const { savedAt, air } = record(readJSON(key));
+  if (!nonNegativeNumber(savedAt)) return null;
   const age = now - savedAt;
+  if (age < 0 || age >= CACHE_MAX_AGE_MS) return null;
+
+  const { city, source, asOf, timezone, aqi, pm25, pm10, hours: storedHours } = record(air);
   if (
-    !Number.isFinite(savedAt) ||
-    age < 0 ||
-    age >= CACHE_MAX_AGE_MS ||
-    air?.source !== 'live' ||
-    !isCity(air.city) ||
-    typeof air.asOf !== 'string' ||
-    !isReading(air.aqi) ||
-    !isReading(air.pm25) ||
-    !isReading(air.pm10) ||
-    !Array.isArray(air.hours)
+    source !== 'live' ||
+    !isCity(city) ||
+    !isLocalTimestamp(asOf) ||
+    !isTimeZone(timezone) ||
+    !nonNegativeNumber(aqi) ||
+    !nonNegativeNumber(pm25) ||
+    !nonNegativeNumber(pm10) ||
+    !Array.isArray(storedHours)
   )
     return null;
-
-  try {
-    const currentHour = cityHour(now, air.timezone);
-    const hours = air.hours.filter((hour) => isHour(hour) && hour.time >= currentHour);
-    // Keep an older current reading timestamped. Only suggest hours in the future.
-    return hours.length ? { age, air: { ...air, hours, category: categoryFor(air.aqi) } } : null;
-  } catch {
-    return null;
-  }
+  // Keep the older reading timestamped and exclude hours already in the past.
+  const hours = upcomingHours(storedHours.filter(isHour), cityHour(now, timezone));
+  return hours.length
+    ? {
+        age,
+        air: { city, source, asOf, timezone, aqi, pm25, pm10, hours, category: categoryFor(aqi) },
+      }
+    : null;
 }
 
+/** @param {unknown} data @param {City} city @returns {AirForecast} */
 function parseForecast(data, city) {
-  const { current, hourly } = data ?? {};
+  const { current, hourly, timezone } = record(data);
+  const { time, us_aqi, pm2_5: pm25, pm10 } = record(current);
+  const { time: timePoints, us_aqi: aqiPoints, pm2_5: pm25Points } = record(hourly);
   if (
-    !isReading(current?.us_aqi) ||
-    !isReading(current.pm2_5) ||
-    !isReading(current.pm10) ||
-    typeof current.time !== 'string' ||
-    !Array.isArray(hourly?.time)
-  ) {
+    !isLocalTimestamp(time) ||
+    !nonNegativeNumber(us_aqi) ||
+    !nonNegativeNumber(pm25) ||
+    !nonNegativeNumber(pm10) ||
+    !Array.isArray(timePoints) ||
+    !Array.isArray(aqiPoints) ||
+    !Array.isArray(pm25Points) ||
+    !isTimeZone(timezone)
+  )
     throw new Error('Incomplete forecast');
-  }
-  const start = current.time.slice(0, 13) + ':00';
-  const hours = hourly.time
-    .map((time, index) => ({
-      time,
-      aqi: hourly.us_aqi?.[index],
-      pm25: hourly.pm2_5?.[index],
-    }))
-    .filter((hour) => isHour(hour) && hour.time >= start)
-    .slice(0, HOUR_LIMIT)
-    .map((hour) => ({ ...hour, aqi: Math.round(hour.aqi) }));
+
+  const start = time.slice(0, 13) + ':00';
+  const hours = upcomingHours(
+    timePoints
+      .map((localTime, index) => ({
+        time: localTime,
+        aqi: aqiPoints[index],
+        pm25: pm25Points[index],
+      }))
+      .filter(isHour),
+    start,
+  ).map((hour) => ({ ...hour, aqi: Math.round(hour.aqi) }));
   if (!hours.length) throw new Error('No hourly forecast');
 
-  const aqi = Math.round(current.us_aqi);
+  const aqi = Math.round(us_aqi);
   return {
     city,
     source: 'live',
-    asOf: current.time,
-    timezone: data.timezone || city.timezone || 'UTC',
+    asOf: time,
+    timezone,
     aqi,
-    pm25: current.pm2_5,
-    pm10: current.pm10,
+    pm25,
+    pm10,
     hours,
     category: categoryFor(aqi),
   };
 }
 
+/**
+ * @param {City} city
+ * @param {{demo?: boolean, signal?: AbortSignal}} options
+ * @returns {Promise<AirForecast>}
+ */
 export async function getAir(city = cities[0], { demo = false, signal } = {}) {
   if (!isCity(city)) throw new TypeError('Choose a city with valid coordinates.');
   if (demo) return getDemoAir(city);
@@ -147,8 +210,8 @@ export async function getAir(city = cities[0], { demo = false, signal } = {}) {
   if (cached && cached.age < CACHE_REFRESH_MS) return { ...cached.air, source: 'cached', city };
 
   const params = new URLSearchParams({
-    latitude: city.lat,
-    longitude: city.lon,
+    latitude: String(city.lat),
+    longitude: String(city.lon),
     timezone: 'auto',
     forecast_days: '3',
     current: 'us_aqi,pm2_5,pm10',

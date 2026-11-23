@@ -1,12 +1,15 @@
 import { getCommunityBrief } from '../domain/guidance.js';
 import { byId, element } from './dom.js';
 
+/** @param {{showToast: (message: string) => void, showCopyText: (brief: string) => void}} options */
 export function createCommunityView({ showToast, showCopyText }) {
   const copy = byId('copy-brief');
   const label = copy.querySelector('span');
+  if (!label) throw new Error('Missing copy button label');
   const feedback = byId('share-status');
   let brief = '';
-  let cityName;
+  let cityName = '';
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
   let resetLabel;
 
   copy.addEventListener('click', async () => {
@@ -41,6 +44,10 @@ export function createCommunityView({ showToast, showCopyText }) {
   });
 
   return {
+    /**
+     * @param {import('../types/contracts.js').AirForecast} air
+     * @param {import('../types/contracts.js').Profile} profile
+     */
     update(air, profile) {
       cityName = air.city.name;
       brief = getCommunityBrief(air, profile);

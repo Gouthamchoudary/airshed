@@ -1,3 +1,4 @@
+/** @type {Record<string, string>} */
 const iconPaths = {
   pin: '<path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2.4"/>',
   chevron: '<path d="m6 9 6 6 6-6"/>',
@@ -27,6 +28,7 @@ const iconPaths = {
   close: '<path d="m6 6 12 12M18 6 6 18"/>',
 };
 
+/** @param {string} name */
 export function icon(name) {
   const template = document.createElement('template');
   const path = Object.hasOwn(iconPaths, name) ? iconPaths[name] : '';
@@ -34,11 +36,14 @@ export function icon(name) {
     '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">' +
     path +
     '</svg>';
-  return template.content.firstElementChild;
+  const svg = template.content.firstElementChild;
+  if (!svg) throw new Error('Invalid static icon markup');
+  return svg;
 }
 
 export function populateIcons() {
   document.querySelectorAll('[data-icon]').forEach((placeholder) => {
-    placeholder.replaceWith(icon(placeholder.dataset.icon));
+    const name = placeholder.getAttribute('data-icon');
+    if (name) placeholder.replaceWith(icon(name));
   });
 }

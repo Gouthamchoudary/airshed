@@ -1,15 +1,16 @@
+import { boundedNumber } from '../lib/data.js';
+
 // EPA passenger-car and illustrative diesel-bus tailpipe factors.
 const CAR_KG_PER_KM = 0.4 / 1.609344;
 const BUS_KG_PER_PASSENGER_KM = ((10.18 / 3.785411784) * 0.33) / 15;
-export function boundedNumber(value, min, max, fallback) {
-  const number = Number(value);
-  return Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : fallback;
-}
+/** @param {number} value */
 const round2 = (value) => Math.round(value * 100) / 100;
 
+/** @param {unknown} km @param {string} alternative @param {unknown} households */
 export function getImpact(km, alternative = 'transit', households = 1) {
   const distance = boundedNumber(km, 0, 10000, 0);
   const people = Math.floor(boundedNumber(households, 0, 10000, 1));
+  /** @type {Record<string, [number, string]>} */
   const choices = {
     transit: [
       BUS_KG_PER_PASSENGER_KM,

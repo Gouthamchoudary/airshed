@@ -10,7 +10,7 @@ Airshed turns hourly air forecasts into practical choices for your household, co
 
 Three friends are getting ready to drive from Hyderabad to Goa. They check a simulated smog day, ask Airshed about the drive, and look up Panaji before making outdoor plans.
 
-[![Play the Airshed demo featuring three friends in Hyderabad planning a Goa road trip](assets/launch-cover.jpg)](https://drive.google.com/file/d/1UopXAB1ao_PbQ05wUL44oRefne3h_Zni/view)
+[Open the demo player](https://airshed-fieldguide.vercel.app/demo.html)
 
 ## What you can do
 
@@ -20,19 +20,33 @@ Three friends are getting ready to drive from Hyderabad to Goa. They check a sim
 
 ## Approach and architecture
 
-![Airshed architecture. Local forecast data and household preferences feed the browser app, which generates action plans, emissions comparisons, shareable bulletins and grounded AI answers.](assets/architecture.png)
-
 1. **Get the local picture.** City search resolves coordinates, then Open-Meteo returns the CAMS forecast in that city's time.
 2. **Apply decision rules.** US AQI, household sensitivity and commute choices drive the daily checklist. Each action links to its source.
 3. **Answer a specific question.** A 45 KB autoregressive model generates action tokens on-device. A renderer joins the selected actions with local forecast values and their citations. [Model card](genai/MODEL.md)
 
-The planning code is in [domain/](domain/), browser interactions are in [ui/](ui/), and the optional online rewriting endpoint is in [api/brief.js](api/brief.js).
+The planning code is in [domain/](domain/), the browser interactions are in [ui/](ui/), and the shared data contracts are in [types/](types/contracts.d.ts). The optional online rewriting endpoint is [api/brief.js](api/brief.js).
+
+<details>
+<summary>View the architecture drawing</summary>
+
+![Airshed architecture from local forecasts and household preferences to action plans, emissions comparisons and grounded AI answers.](assets/architecture.png)
+
+</details>
 
 ## Run and verify
 
 Run `python -m http.server 4187` and open [localhost:4187](http://localhost:4187). The daily plan and bundled model need no API key.
 
-Run `npm test` with Node.js 22.12+ for the engine and API checks. For the browser and accessibility suite, run `npm ci`, `npx playwright install chromium`, then `npm run test:e2e`. The same checks run in GitHub Actions.
+Use Node.js 22.13+ to run the development checks.
+
+```sh
+npm ci
+npm run check
+npx playwright install chromium
+npm run test:e2e
+```
+
+`check` runs linting, strict JavaScript type checking, formatting checks, and unit tests. The browser suite covers keyboard interactions, accessibility, forecast changes and the demo. GitHub Actions runs both suites.
 
 ## Data and assumptions
 

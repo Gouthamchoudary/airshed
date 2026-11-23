@@ -1,6 +1,9 @@
 import { getImpact } from './impact.js';
 import { normalizeProfile } from './profile.js';
 
+/** @typedef {import('../types/contracts.js').AirForecast} AirForecast */
+/** @typedef {import('../types/contracts.js').Profile} Profile */
+
 export const sources = {
   data: {
     title: 'Open-Meteo · CAMS air forecasts',
@@ -37,6 +40,7 @@ export const sources = {
   index: { title: 'AirNow · US AQI categories', url: 'https://www.airnow.gov/aqi/aqi-basics/' },
 };
 
+/** @param {number} aqi @param {import('../types/contracts.js').Household} group */
 function activityGuidance(aqi, group) {
   const who = {
     family: 'Children',
@@ -64,15 +68,28 @@ function activityGuidance(aqi, group) {
   return 'Usual outdoor activities are reasonable at this AQI. Pick a route away from busy traffic when possible.';
 }
 
+/**
+ * @param {string} id
+ * @param {import('../types/contracts.js').ActionGroup} group
+ * @param {string} title
+ * @param {string} action
+ * @param {string} impact
+ * @param {import('../types/contracts.js').Citation} source
+ * @returns {import('../types/contracts.js').Action}
+ */
 function fact(id, group, title, action, impact, source) {
   return { id, group, title, action, impact, sourceUrl: source.url, sourceTitle: source.title };
 }
 
+/** @param {AirForecast} air @param {Profile} p */
 export function actionCatalog(air, p) {
   const poor = air.aqi > 100;
   const severe = air.aqi > 200;
   const active = ['walk', 'cycle'].includes(p.commute);
-  const lowest = air.hours.reduce((best, h) => (!best || h.aqi < best.aqi ? h : best), null);
+  const lowest = air.hours.reduce(
+    (best, hour) => (!best || hour.aqi < best.aqi ? hour : best),
+    /** @type {import('../types/contracts.js').AirHour | null} */ (null),
+  );
   const lowHour = lowest ? lowest.time.slice(11, 16) : '';
   const later = lowest?.time.slice(0, 10) !== air.asOf.slice(0, 10) ? ' the next day' : '';
   const forecastText = lowest
@@ -84,7 +101,7 @@ export function actionCatalog(air, p) {
       ' (city time). '
     : '';
   const timingAdvice =
-    lowest?.aqi > 150
+    lowest && lowest.aqi > 150
       ? 'Keep strenuous activity indoors even in that window.'
       : 'Check the local advisory again before moving an errand to that hour.';
   const emissions = getImpact(p.distanceKm, 'carpool');
@@ -206,6 +223,7 @@ export function actionCatalog(air, p) {
   };
 }
 
+/** @param {AirForecast} air @param {unknown} profile */
 export function getPlan(air, profile = {}) {
   const p = normalizeProfile(profile);
   const facts = actionCatalog(air, p);
@@ -218,6 +236,7 @@ export function getPlan(air, profile = {}) {
   ];
 }
 
+/** @param {import('../types/contracts.js').AirSource} source */
 export function sourceLabel(source) {
   return (
     {
@@ -228,6 +247,7 @@ export function sourceLabel(source) {
   );
 }
 
+/** @param {AirForecast} air @param {unknown} profile */
 export function getCommunityBrief(air, profile = {}) {
   const p = normalizeProfile(profile);
   const facts = actionCatalog(air, p);

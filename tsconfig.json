@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "strict": true,
+    "target": "ES2023",
+    "module": "NodeNext",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "skipLibCheck": true
+  },
+  "include": [
+    "app.js",
+    "engine.js",
+    "api/**/*.js",
+    "domain/**/*.js",
+    "lib/**/*.js",
+    "ui/**/*.js",
+    "genai/planner.js",
+    "demo-player.js",
+    "types/**/*.d.ts"
+  ]
+}
