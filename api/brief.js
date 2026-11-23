@@ -84,7 +84,7 @@ export default async function brief(req, res) {
     const response = await fetch(GATEWAY, {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(9000),
+      signal: AbortSignal.timeout(14500),
       body: JSON.stringify({
         model: MODEL, max_tokens: 280, temperature: 0.35,
         messages: [
@@ -100,8 +100,14 @@ export default async function brief(req, res) {
         return res.status(200).json({ text: answer.trim().slice(0, 1600), mode: 'Gemini 2.5 Flash-Lite' });
       }
     }
-    // Log only the upstream status. Prompts, IPs, tokens and model answers stay out of our logs.
-    console.warn('Airshed gateway response', response.status);
+    // Classify upstream problems without logging user input, provider messages or credentials.
+    const detail = await response.json().catch(() => ({}));
+    const message = String(detail.error?.message || '');
+    const reason = /free tier|free credit|free model|available models/i.test(message) ? 'model entitlement'
+      : /payment|credit|balance|billing/i.test(message) ? 'balance'
+      : /enable|activate|sign.?up|verification|terms/i.test(message) ? 'gateway activation'
+      : /authoriz|authentic|permission|token/i.test(message) ? 'service identity' : 'provider';
+    console.warn('Airshed gateway response', response.status, reason, String(detail.error?.type || '').replace(/[^a-z_]/gi, '').slice(0,50));
   } catch {
     console.warn('Airshed gateway request unavailable');
   }
