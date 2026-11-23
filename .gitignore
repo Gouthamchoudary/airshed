@@ -1,0 +1,10 @@
+.env*
+!.env.example
+.vercel/
+node_modules/
+__pycache__/
+*.pyc
+*.mp4
+*.webm
+test-results/
+playwright-report/

@@ -1,0 +1,13 @@
+{
+  "name": "airshed-fieldguide",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A household field guide for winter smog and urban air pollution.",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

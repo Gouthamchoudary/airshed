@@ -1,0 +1,10 @@
+.github
+tests
+test
+training
+tools
+scripts
+README.md
+*.md
+*.py
+*.test.*
